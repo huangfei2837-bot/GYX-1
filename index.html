@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="MEMS半导体氢气传感器数据计算与泄漏判断工具">
+  <title>氢析 · 氢气泄漏判断台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true">H₂</div>
+      <div>
+        <h1>氢析</h1>
+        <p>MEMS氢气传感器判断台</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="clock" class="clock" aria-label="当前时间"></span>
+      <button id="exportBtn" class="button secondary" type="button">导出记录</button>
+      <label class="button secondary file-button" for="csvInput">导入 CSV</label>
+      <input id="csvInput" type="file" accept=".csv,text/csv" hidden>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="status-strip" aria-labelledby="systemStatusTitle">
+      <div>
+        <p class="eyebrow">系统状态</p>
+        <div class="status-title-row">
+          <span id="statusDot" class="status-dot normal"></span>
+          <h2 id="systemStatusTitle">等待数据</h2>
+        </div>
+        <p id="statusReason" class="status-reason">录入一组有效数据后开始判断</p>
+      </div>
+      <div class="status-metrics">
+        <div class="metric-primary">
+          <span>计算浓度</span>
+          <strong><span id="ppmValue">--</span> <small>ppm</small></strong>
+        </div>
+        <div class="metric-primary">
+          <span>爆炸下限占比</span>
+          <strong><span id="lelValue">--</span> <small>%LEL</small></strong>
+        </div>
+        <div class="metric-primary">
+          <span>传感器响应</span>
+          <strong><span id="responseValue">--</span> <small>%</small></strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-grid">
+      <div class="main-column">
+        <section class="panel live-panel" aria-labelledby="liveTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">实时输入</p>
+              <h2 id="liveTitle">传感器采样</h2>
+            </div>
+            <div class="mode-switch" role="group" aria-label="采样模式">
+              <button class="mode-button active" data-mode="manual" type="button">手动</button>
+              <button class="mode-button" data-mode="simulate" type="button">模拟</button>
+            </div>
+          </div>
+
+          <form id="sampleForm" class="sample-form">
+            <label>
+              <span>输出电压 Vout</span>
+              <span class="input-with-unit"><input id="vout" name="vout" type="number" min="0.001" step="0.001" value="2.500" required><b>V</b></span>
+            </label>
+            <label>
+              <span>环境温度</span>
+              <span class="input-with-unit"><input id="temperature" name="temperature" type="number" step="0.1" value="25.0" required><b>°C</b></span>
+            </label>
+            <label>
+              <span>相对湿度</span>
+              <span class="input-with-unit"><input id="humidity" name="humidity" type="number" min="0" max="100" step="0.1" value="50.0" required><b>%RH</b></span>
+            </label>
+            <label>
+              <span>加热器电压 Vh</span>
+              <span class="input-with-unit"><input id="heaterVoltage" name="heaterVoltage" type="number" min="0" step="0.01" value="1.80" required><b>V</b></span>
+            </label>
+            <label>
+              <span>加热器电流 Ih</span>
+              <span class="input-with-unit"><input id="heaterCurrent" name="heaterCurrent" type="number" min="0" step="0.1" value="32.0" required><b>mA</b></span>
+            </label>
+            <label>
+              <span>采样间隔</span>
+              <span class="input-with-unit"><input id="sampleInterval" name="sampleInterval" type="number" min="0.1" step="0.1" value="1.0" required><b>s</b></span>
+            </label>
+            <div id="simulationControl" class="simulation-control" hidden>
+              <label for="simulationLevel"><span>模拟泄漏强度</span><output id="simulationOutput">0%</output></label>
+              <input id="simulationLevel" type="range" min="0" max="100" value="0">
+            </div>
+            <div class="form-actions">
+              <button id="sampleBtn" class="button primary" type="submit">采集并计算</button>
+              <button id="simulationBtn" class="button primary" type="button" hidden>开始模拟</button>
+              <button id="resetBtn" class="button ghost" type="button">清空记录</button>
+            </div>
+          </form>
+
+          <div id="validationMessage" class="message" role="alert" hidden></div>
+        </section>
+
+        <section class="panel chart-panel" aria-labelledby="trendTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">趋势</p>
+              <h2 id="trendTitle">浓度与报警阈值</h2>
+            </div>
+            <div class="chart-legend" aria-label="图例">
+              <span><i class="legend-line concentration"></i>计算浓度</span>
+              <span><i class="legend-line warning"></i>预警线</span>
+              <span><i class="legend-line alarm"></i>报警线</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="trendChart" aria-label="氢气浓度趋势图"></canvas>
+            <p id="chartEmpty" class="chart-empty">暂无采样记录</p>
+          </div>
+        </section>
+
+        <section class="panel records-panel" aria-labelledby="recordsTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">明细</p>
+              <h2 id="recordsTitle">最近采样记录</h2>
+            </div>
+            <span id="recordCount" class="record-count">0 条</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>Vout</th>
+                  <th>Rs</th>
+                  <th>温度</th>
+                  <th>湿度</th>
+                  <th>ppm</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody">
+                <tr class="empty-row"><td colspan="7">录入数据后将在这里显示结果</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="side-column">
+        <section class="panel config-panel" aria-labelledby="configTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">计算模型</p>
+              <h2 id="configTitle">传感器参数</h2>
+            </div>
+            <button id="restoreDefaultsBtn" class="text-button" type="button">恢复演示值</button>
+          </div>
+          <div class="demo-notice">
+            <strong>当前为演示参数</strong>
+            <span>投用前必须替换为本型号的标定数据。</span>
+          </div>
+          <form id="configForm" class="config-form">
+            <label>
+              <span>分压电路</span>
+              <select id="topology" name="topology">
+                <option value="sensorTop">Rs接电源端，RL接地</option>
+                <option value="sensorBottom">RL接电源端，Rs接地</option>
+              </select>
+            </label>
+            <div class="field-pair">
+              <label><span>分压电压 Vc (V)</span><input id="vc" name="vc" type="number" min="0.1" step="0.01" value="5.00"></label>
+              <label><span>负载电阻 RL (kΩ)</span><input id="rl" name="rl" type="number" min="0.001" step="0.1" value="10.0"></label>
+            </div>
+            <div class="field-pair">
+              <label><span>洁净空气 R0 (kΩ)</span><input id="r0" name="r0" type="number" min="0.001" step="0.1" value="10.0"></label>
+              <label><span>LEL浓度 (ppm)</span><input id="lelPpm" name="lelPpm" type="number" min="1" step="100" value="40000"></label>
+            </div>
+            <p class="group-label">标定公式 Rs/R0 = A × C<sup>−B</sup></p>
+            <div class="field-pair">
+              <label><span>系数 A</span><input id="coefficientA" name="coefficientA" type="number" min="0.000001" step="0.01" value="10.00"></label>
+              <label><span>系数 B</span><input id="coefficientB" name="coefficientB" type="number" min="0.000001" step="0.01" value="0.50"></label>
+            </div>
+            <p class="group-label">线性温湿度补偿</p>
+            <div class="field-pair">
+              <label><span>温度系数 /°C</span><input id="tempCoefficient" name="tempCoefficient" type="number" step="0.0001" value="0.0020"></label>
+              <label><span>湿度系数 /%RH</span><input id="humidityCoefficient" name="humidityCoefficient" type="number" step="0.0001" value="0.0010"></label>
+            </div>
+            <p class="group-label">报警条件</p>
+            <div class="field-pair">
+              <label><span>预警 (ppm)</span><input id="warningPpm" name="warningPpm" type="number" min="0" step="100" value="4000"></label>
+              <label><span>报警 (ppm)</span><input id="alarmPpm" name="alarmPpm" type="number" min="0" step="100" value="10000"></label>
+            </div>
+            <div class="field-pair">
+              <label><span>预警延时 (s)</span><input id="warningDelay" name="warningDelay" type="number" min="0" step="0.1" value="5.0"></label>
+              <label><span>报警延时 (s)</span><input id="alarmDelay" name="alarmDelay" type="number" min="0" step="0.1" value="2.0"></label>
+            </div>
+            <div class="field-pair">
+              <label><span>加热器最小功率 (mW)</span><input id="heaterMinPower" name="heaterMinPower" type="number" min="0" step="1" value="40"></label>
+              <label><span>加热器最大功率 (mW)</span><input id="heaterMaxPower" name="heaterMaxPower" type="number" min="0" step="1" value="80"></label>
+            </div>
+            <button class="button secondary full-width" type="submit">应用参数</button>
+          </form>
+        </section>
+
+        <section class="panel calculation-panel" aria-labelledby="calculationTitle">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">本次计算</p>
+              <h2 id="calculationTitle">计算过程</h2>
+            </div>
+          </div>
+          <dl class="calculation-list">
+            <div><dt>敏感电阻 Rs</dt><dd id="calcRs">-- kΩ</dd></div>
+            <div><dt>归一化比值 Rs/R0</dt><dd id="calcRatio">--</dd></div>
+            <div><dt>补偿后比值</dt><dd id="calcCorrected">--</dd></div>
+            <div><dt>加热器功率</dt><dd id="calcPower">-- mW</dd></div>
+            <div><dt>浓度上升速度</dt><dd id="calcRiseRate">-- ppm/s</dd></div>
+          </dl>
+        </section>
+
+        <section class="safety-note" aria-label="安全提示">
+          <strong>安全边界</strong>
+          <p>本工具用于算法验证和数据分析，不得单独承担人员或设备安全联锁。正式产品需完成标准气体标定、交叉气体测试、故障诊断和相关认证。</p>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
