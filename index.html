@@ -8,21 +8,59 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#monitor">跳转到实时监控</a>
   <header class="topbar">
-    <div class="brand-block">
+    <a class="brand-block" href="#overview" aria-label="GYX-1 首页">
       <div class="brand-mark" aria-hidden="true">H₂</div>
-      <div><h1>GYX-1</h1><p>氢气传感器边缘计算平台</p></div>
-    </div>
+      <div><strong>GYX-1<span class="brand-period">.</span></strong><p>氢气传感器边缘计算平台</p></div>
+    </a>
+    <nav class="main-nav" aria-label="主导航">
+      <a href="#overview">平台概览</a>
+      <a href="#monitor">实时监控</a>
+      <a href="#records">采样记录</a>
+      <a href="#connection">设备接入</a>
+    </nav>
     <div class="topbar-actions">
       <span id="connectionBadge" class="connection-badge offline"><i></i><span>未连接</span></span>
-      <span id="clock" class="clock" aria-label="当前时间"></span>
-      <button id="exportBtn" class="button secondary" type="button">导出记录</button>
-      <label class="button secondary file-button" for="csvInput">导入 CSV</label>
-      <input id="csvInput" type="file" accept=".csv,text/csv" hidden>
+      <a class="button primary nav-connect" href="#connection">连接设备 <span aria-hidden="true">↗</span></a>
     </div>
   </header>
 
+  <section id="overview" class="hero" aria-labelledby="heroTitle">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <p class="hero-kicker"><span></span> MEMS HYDROGEN SENSING</p>
+        <h1 id="heroTitle">让每一次感知，<br><em>清晰可见。</em></h1>
+        <p class="hero-description">从传感器采样到边缘计算，让氢气浓度、设备状态与变化趋势一目了然。为每一次实验，提供清晰的数据依据。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#monitor">进入监控台 <span aria-hidden="true">→</span></a>
+          <a class="button secondary" href="#sampling">体验数据采集 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="hero-features"><span>实时数据采集</span><span>边缘浓度计算</span><span>多维趋势分析</span></div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="sensor-stack stack-back"></div><div class="sensor-stack stack-middle"></div>
+        <div class="sensor-core"><span class="core-caption">HYDROGEN SENSOR</span><strong>H<span>2</span></strong><div class="core-wave"><svg viewBox="0 0 180 32"><path d="M0 17h44l9-10 13 20L83 3l15 25 12-12h70"/></svg></div><span class="core-label">GYX-1 · 边缘感知</span></div>
+        <div class="float-tag float-top"><span class="art-symbol">◎</span><div><strong>实时监测</strong><small>感知每一刻变化</small></div></div>
+        <div class="float-tag float-left"><span class="art-symbol">⌘</span><div><strong>边缘计算</strong><small>从信号到数据</small></div></div>
+        <div class="float-tag float-bottom"><span class="art-symbol"><svg viewBox="0 0 24 24"><path d="M5 19V12M12 19V5M19 19V9"/></svg></span><div><strong>趋势洞察</strong><small>让数据清晰可见</small></div></div>
+        <span class="art-dot dot-one"></span><span class="art-dot dot-two"></span><span class="art-dot dot-three"></span>
+        <div class="art-caption">采集 <span>→</span> 计算 <span>→</span> 判断</div>
+      </div>
+    </div>
+  </section>
+
   <main class="workspace">
+    <div id="monitor" class="section-intro">
+      <div><p class="eyebrow">LIVE MONITORING</p><h2>实时监控<span class="section-subtitle">每一项指标，都有迹可循</span></h2></div>
+      <div class="workspace-actions">
+        <span id="clock" class="clock" aria-label="当前时间"></span>
+        <button id="importBtn" class="button secondary" type="button">导入 CSV</button>
+        <button id="exportBtn" class="button secondary" type="button">导出记录 <span aria-hidden="true">↓</span></button>
+        <input id="csvInput" type="file" accept=".csv,text/csv" hidden>
+      </div>
+    </div>
     <section class="device-toolbar" aria-label="当前设备">
       <div class="device-identity">
         <span id="deviceOnlineDot" class="device-dot demo"></span>
@@ -38,10 +76,10 @@
       </dl>
     </section>
 
-    <section class="status-strip" aria-labelledby="systemStatusTitle">
+    <section class="status-strip" data-status="idle" aria-labelledby="systemStatusTitle">
       <div>
         <p class="eyebrow">泄漏判断</p>
-        <div class="status-title-row"><span id="statusDot" class="status-dot normal"></span><h2 id="systemStatusTitle">等待数据</h2></div>
+        <div class="status-title-row"><span id="statusDot" class="status-dot idle"></span><h2 id="systemStatusTitle">等待数据</h2></div>
         <p id="statusReason" class="status-reason">连接设备、导入数据或启动模拟后开始判断</p>
       </div>
       <div class="status-metrics">
@@ -51,6 +89,7 @@
       </div>
     </section>
 
+    <div class="metrics-heading"><h3>传感器指标</h3><span>以当前采样数据为准 <i></i> 未采样时显示 —</span></div>
     <section class="sensor-grid" aria-label="实时传感器指标">
       <article><span>原始 ADC</span><strong id="rawAdcValue">--</strong><small>code</small></article>
       <article><span>输出电压</span><strong id="voutMetric">--</strong><small>V</small></article>
@@ -66,7 +105,7 @@
 
     <section class="content-grid">
       <div class="main-column">
-        <section class="panel live-panel" aria-labelledby="liveTitle">
+        <section id="sampling" class="panel live-panel" aria-labelledby="liveTitle">
           <div class="panel-heading">
             <div><p class="eyebrow">数据源</p><h2 id="liveTitle">传感器采样</h2></div>
             <div class="mode-switch" role="group" aria-label="采样模式">
@@ -109,10 +148,10 @@
             <div><p class="eyebrow">趋势</p><h2 id="trendTitle">浓度与报警阈值</h2></div>
             <div class="chart-legend" aria-label="图例"><span><i class="legend-line concentration"></i>计算浓度</span><span><i class="legend-line warning"></i>预警线</span><span><i class="legend-line alarm"></i>报警线</span></div>
           </div>
-          <div class="chart-wrap"><canvas id="trendChart" aria-label="氢气浓度趋势图"></canvas><p id="chartEmpty" class="chart-empty">暂无采样记录</p></div>
+          <div class="chart-wrap"><canvas id="trendChart" role="img" aria-label="氢气浓度趋势图"></canvas><div id="chartEmpty" class="chart-empty"><svg viewBox="0 0 64 48" aria-hidden="true"><path d="M7 4v34h50M13 28l11-10 10 6 16-17"/></svg><strong>等待第一条采样数据</strong><span>手动采集、启动模拟或连接设备后，趋势将在这里呈现</span></div></div>
         </section>
 
-        <section class="panel records-panel" aria-labelledby="recordsTitle">
+        <section id="records" class="panel records-panel" aria-labelledby="recordsTitle">
           <div class="panel-heading"><div><p class="eyebrow">明细</p><h2 id="recordsTitle">最近采样记录</h2></div><span id="recordCount" class="record-count">0 条</span></div>
           <div class="table-wrap">
             <table>
@@ -124,7 +163,7 @@
       </div>
 
       <aside class="side-column">
-        <section class="panel connection-panel" aria-labelledby="connectionTitle">
+        <section id="connection" class="panel connection-panel" aria-labelledby="connectionTitle">
           <div class="panel-heading"><div><p class="eyebrow">设备通讯</p><h2 id="connectionTitle">服务器接入</h2></div><span id="apiStatus" class="small-status">未检测</span></div>
           <form id="connectionForm" class="connection-form">
             <label><span>API服务器地址</span><input id="apiBaseUrl" type="url" placeholder="http://127.0.0.1:8080" value="http://127.0.0.1:8080"></label>
@@ -165,6 +204,7 @@
     </section>
   </main>
 
+  <footer class="site-footer"><a class="footer-brand" href="#overview">GYX-1<span>.</span></a><p>以数据感知变化 · 氢气传感器边缘计算平台</p><a href="https://github.com/huangfei2837-bot/GYX-1" target="_blank" rel="noopener noreferrer">GitHub 项目 <span aria-hidden="true">↗</span></a></footer>
   <script src="app.js"></script>
 </body>
 </html>

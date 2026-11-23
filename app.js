@@ -254,6 +254,7 @@ function sourceLabel(source) {
 }
 
 function render(record) {
+  document.querySelector(".status-strip").dataset.status = record?.status || state.records.at(-1)?.status || "idle";
   if (record) {
     $("systemStatusTitle").textContent = record.statusLabel;
     $("statusReason").textContent = record.reason;
@@ -339,7 +340,7 @@ function drawChart() {
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const value = maximum * i / 4, lineY = y(value);
-    ctx.strokeStyle = "#e3e9e9";
+    ctx.strokeStyle = "#e8eef8";
     ctx.beginPath(); ctx.moveTo(margin.left, lineY); ctx.lineTo(width - margin.right, lineY); ctx.stroke();
     ctx.fillStyle = "#718085"; ctx.textAlign = "right";
     ctx.fillText(Math.round(value).toLocaleString("zh-CN"), margin.left - 8, lineY + 4);
@@ -348,15 +349,15 @@ function drawChart() {
     ctx.save(); ctx.strokeStyle = color; ctx.setLineDash([6, 5]);
     ctx.beginPath(); ctx.moveTo(margin.left, y(value)); ctx.lineTo(width - margin.right, y(value)); ctx.stroke(); ctx.restore();
   };
-  thresholdLine(state.config.warningPpm, "#b56a00"); thresholdLine(state.config.alarmPpm, "#c63f32");
+  thresholdLine(state.config.warningPpm, "#b56a00"); thresholdLine(state.config.alarmPpm, "#cf413c");
   const gradient = ctx.createLinearGradient(0, margin.top, 0, height - margin.bottom);
-  gradient.addColorStop(0, "rgba(8,125,114,0.24)"); gradient.addColorStop(1, "rgba(8,125,114,0.015)");
+  gradient.addColorStop(0, "rgba(40,101,239,0.20)"); gradient.addColorStop(1, "rgba(40,101,239,0.015)");
   ctx.beginPath(); data.forEach((item, index) => index ? ctx.lineTo(x(index), y(item.concentration)) : ctx.moveTo(x(index), y(item.concentration)));
   ctx.lineTo(x(data.length - 1), height - margin.bottom); ctx.lineTo(x(0), height - margin.bottom); ctx.closePath(); ctx.fillStyle = gradient; ctx.fill();
   ctx.beginPath(); data.forEach((item, index) => index ? ctx.lineTo(x(index), y(item.concentration)) : ctx.moveTo(x(index), y(item.concentration)));
-  ctx.strokeStyle = "#087d72"; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.strokeStyle = "#2865ef"; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.stroke();
   const last = data.at(-1);
-  ctx.beginPath(); ctx.arc(x(data.length - 1), y(last.concentration), 4, 0, Math.PI * 2); ctx.fillStyle = last.status === "alarm" ? "#c63f32" : "#087d72"; ctx.fill();
+  ctx.beginPath(); ctx.arc(x(data.length - 1), y(last.concentration), 4, 0, Math.PI * 2); ctx.fillStyle = last.status === "alarm" ? "#cf413c" : "#2865ef"; ctx.fill();
   ctx.fillStyle = "#718085"; ctx.textAlign = "left"; ctx.fillText("ppm", 8, 12);
 }
 
@@ -368,7 +369,7 @@ function resetRecords() {
   state.aboveAlarmSeconds = 0;
   $("systemStatusTitle").textContent = "等待数据";
   $("statusReason").textContent = "连接设备、导入数据或启动模拟后开始判断";
-  $("statusDot").className = "status-dot normal";
+  $("statusDot").className = "status-dot idle";
   ["ppmValue", "lelValue", "aiProbabilityValue", "rawAdcValue", "voutMetric", "rsMetric", "ratioMetric", "heaterVoltageMetric", "heaterCurrentMetric", "heaterPowerMetric", "temperatureMetric", "humidityMetric", "riseRateMetric"].forEach((id) => $(id).textContent = "--");
   ["calcRs", "calcRatio", "calcCorrected", "calcPower", "calcRiseRate", "calcSource"].forEach((id) => $(id).textContent = "--");
   $("aiSourceValue").textContent = "等待边缘模型";
@@ -382,7 +383,10 @@ function setConfigForm(config) {
 
 function setMode(mode) {
   state.mode = mode;
-  document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+  document.querySelectorAll(".mode-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === mode);
+    button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+  });
   elements.simulationControl.hidden = mode !== "simulate";
   elements.sampleBtn.hidden = mode === "simulate";
   elements.simulationBtn.hidden = mode !== "simulate";
@@ -633,6 +637,7 @@ elements.simulationBtn.addEventListener("click", () => { try { startSimulation()
 $("resetBtn").addEventListener("click", resetRecords);
 $("restoreDefaultsBtn").addEventListener("click", () => setConfigForm(DEFAULT_CONFIG));
 $("exportBtn").addEventListener("click", exportCsv);
+$("importBtn").addEventListener("click", () => elements.csvInput.click());
 elements.csvInput.addEventListener("change", async () => {
   const file = elements.csvInput.files[0]; if (!file) return;
   try { clearMessage(); importCsv(await file.text()); } catch (error) { showMessage(error.message); } finally { elements.csvInput.value = ""; }
@@ -649,3 +654,17 @@ setConfigForm(state.config);
 $("apiBaseUrl").value = state.apiBaseUrl;
 $("clock").textContent = new Date().toLocaleString("zh-CN", { hour12: false });
 drawChart();
+
+// Keep navigation and sampling controls understandable to keyboard and screen-reader users.
+function updateNavigation() {
+  const current = window.location.hash || "#overview";
+  document.querySelectorAll(".main-nav a").forEach((link) => {
+    if (link.getAttribute("href") === current) link.setAttribute("aria-current", "location");
+    else link.removeAttribute("aria-current");
+  });
+}
+window.addEventListener("hashchange", updateNavigation);
+updateNavigation();
+document.querySelectorAll(".mode-button").forEach((button) => {
+  button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode));
+});
