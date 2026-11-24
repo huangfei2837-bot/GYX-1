@@ -12,11 +12,18 @@ GYX-1用于MEMS半导体氢气传感器的数据采集、计算、趋势展示�
 - 新增AI泄漏概率和模型版本位置。没有真实模型时明确显示“未接入AI模型”。
 - 新增设备列表、最新数据、历史数据、数据接收和WebSocket实时接口。
 - 新增SQLite本地数据存储和演示设备发送程序。
+- 后台可订阅MQTT遥测主题，将ESP32数据写入数据库并实时推送到网页。
 - 保留手动输入、模拟、CSV、参数配置、计算和导出功能。
 
 ## 快速启动
 
 电脑需要安装 Node.js 24 或更新版本。
+
+首次运行先安装依赖：
+
+```powershell
+npm install
+```
 
 在项目目录执行：
 
@@ -82,6 +89,7 @@ GET  /api/devices
 GET  /api/devices/GYX-1-001/latest
 GET  /api/devices/GYX-1-001/history?limit=300
 POST /api/telemetry
+GET  /api/mqtt/status
 WS   /api/realtime?device_id=GYX-1-001
 ```
 

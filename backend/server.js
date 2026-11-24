@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
+const mqtt = require("mqtt");
 
 const HOST = process.env.GYX1_HOST || "0.0.0.0";
 const PORT = Number(process.env.GYX1_PORT || 8080);
@@ -12,6 +13,9 @@ const ONLINE_TIMEOUT_MS = Number(process.env.GYX1_ONLINE_TIMEOUT_MS || 15000);
 const ALLOWED_ORIGIN = process.env.GYX1_ALLOWED_ORIGIN || "*";
 const DB_PATH = process.env.GYX1_DB || path.join(__dirname, "gyx1.sqlite");
 const FRONTEND_DIR = path.resolve(__dirname, "..");
+const MQTT_URL = process.env.GYX1_MQTT_URL || "";
+const MQTT_TOPIC = process.env.GYX1_MQTT_TOPIC || "gyx1/+/telemetry";
+const MQTT_CLIENT_ID = process.env.GYX1_MQTT_CLIENT_ID || `gyx1-backend-${process.pid}-${crypto.randomBytes(3).toString("hex")}`;
 
 const db = new DatabaseSync(DB_PATH);
 db.exec(`
@@ -78,6 +82,30 @@ const statements = {
 };
 
 const websocketClients = new Set();
+let mqttClient = null;
+const mqttState = {
+  enabled: Boolean(MQTT_URL),
+  connected: false,
+  broker: MQTT_URL ? safeBrokerName(MQTT_URL) : null,
+  topic: MQTT_URL ? MQTT_TOPIC : null,
+  last_message_at: null,
+  last_error: null,
+  received_count: 0,
+  rejected_count: 0
+};
+
+function safeBrokerName(value) {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.hostname}${url.port ? `:${url.port}` : ""}`;
+  } catch (_) {
+    return "configured";
+  }
+}
+
+function publicMqttState() {
+  return { ...mqttState };
+}
 
 function corsHeaders() {
   return {
@@ -221,6 +249,78 @@ function broadcastTelemetry(record) {
   }
 }
 
+function deviceIdFromTelemetryTopic(topic) {
+  const parts = String(topic).split("/");
+  return parts.length === 3 && parts[0] === "gyx1" && parts[2] === "telemetry" ? parts[1] : null;
+}
+
+function acceptMqttTelemetry(topic, message) {
+  if (message.length > 1024 * 1024) throw new Error("MQTT消息超过1MB");
+  let payload;
+  try { payload = JSON.parse(message.toString("utf8")); }
+  catch (_) { throw new Error("MQTT消息不是有效JSON"); }
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") throw new Error("MQTT消息必须是JSON对象");
+
+  const topicDeviceId = deviceIdFromTelemetryTopic(topic);
+  if (!topicDeviceId) throw new Error("MQTT主题格式无效");
+  const payloadDeviceId = String(valueFrom(payload, "device_id", "deviceId") || "").trim();
+  if (payloadDeviceId && payloadDeviceId !== topicDeviceId) throw new Error("设备编号与MQTT主题不一致");
+  payload.device_id = topicDeviceId;
+
+  const record = insertTelemetry(payload);
+  broadcastTelemetry(record);
+  mqttState.received_count += 1;
+  mqttState.last_message_at = record.timestamp;
+  mqttState.last_error = null;
+  return record;
+}
+
+function startMqtt() {
+  if (!MQTT_URL) {
+    console.log("MQTT ingest disabled: GYX1_MQTT_URL is not set");
+    return;
+  }
+  mqttClient = mqtt.connect(MQTT_URL, {
+    username: process.env.GYX1_MQTT_USERNAME,
+    password: process.env.GYX1_MQTT_PASSWORD,
+    clientId: MQTT_CLIENT_ID,
+    clean: true,
+    reconnectPeriod: 3000,
+    connectTimeout: 10000,
+    resubscribe: true
+  });
+  mqttClient.on("connect", () => {
+    mqttState.connected = true;
+    mqttState.last_error = null;
+    mqttClient.subscribe(MQTT_TOPIC, { qos: 1 }, (error) => {
+      if (error) {
+        mqttState.last_error = error.message;
+        console.error(`MQTT subscribe failed: ${error.message}`);
+      } else {
+        console.log(`MQTT connected to ${mqttState.broker}; subscribed to ${MQTT_TOPIC}`);
+      }
+    });
+  });
+  mqttClient.on("reconnect", () => { mqttState.connected = false; });
+  mqttClient.on("close", () => { mqttState.connected = false; });
+  mqttClient.on("offline", () => { mqttState.connected = false; });
+  mqttClient.on("error", (error) => {
+    mqttState.connected = false;
+    mqttState.last_error = error.message;
+    console.error(`MQTT error: ${error.message}`);
+  });
+  mqttClient.on("message", (topic, message) => {
+    try {
+      const record = acceptMqttTelemetry(topic, message);
+      console.log(`MQTT accepted ${record.device_id} sequence=${record.sequence ?? "--"}`);
+    } catch (error) {
+      mqttState.rejected_count += 1;
+      mqttState.last_error = error.message;
+      console.error(`MQTT message rejected on ${topic}: ${error.message}`);
+    }
+  });
+}
+
 function contentType(filePath) {
   return ({ ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml" })[path.extname(filePath).toLowerCase()] || "application/octet-stream";
 }
@@ -244,7 +344,15 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") { res.writeHead(204, corsHeaders()); res.end(); return; }
   try {
     if (req.method === "GET" && url.pathname === "/health") {
-      sendJson(res, 200, { status: "ok", service: "GYX-1 telemetry", time: new Date().toISOString(), database: path.basename(DB_PATH) });
+      sendJson(res, 200, {
+        status: mqttState.enabled && !mqttState.connected ? "degraded" : "ok",
+        service: "GYX-1 telemetry",
+        time: new Date().toISOString(),
+        database: path.basename(DB_PATH),
+        mqtt: publicMqttState()
+      });
+    } else if (req.method === "GET" && url.pathname === "/api/mqtt/status") {
+      sendJson(res, 200, publicMqttState());
     } else if (req.method === "GET" && url.pathname === "/api/devices") {
       sendJson(res, 200, statements.listDevices.all().map(deviceView));
     } else if (req.method === "GET" && /^\/api\/devices\/[^/]+\/latest$/.test(url.pathname)) {
@@ -301,10 +409,12 @@ heartbeatTimer.unref();
 server.listen(PORT, HOST, () => {
   console.log(`GYX-1 server listening on http://${HOST}:${PORT}`);
   console.log(`Database: ${DB_PATH}`);
+  startMqtt();
 });
 
 function shutdown() {
   clearInterval(heartbeatTimer);
+  if (mqttClient) mqttClient.end(true);
   server.close(() => { db.close(); process.exit(0); });
   setTimeout(() => process.exit(1), 3000).unref();
 }

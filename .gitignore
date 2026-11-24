@@ -2,3 +2,6 @@ backend/*.sqlite
 backend/*.sqlite-shm
 backend/*.sqlite-wal
 *.log
+.env
+.env.*
+node_modules/

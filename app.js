@@ -458,8 +458,11 @@ async function detectServer() {
     : '<option value="">暂无设备，请先发送数据</option>';
   const savedDevice = state.activeDeviceId;
   if (savedDevice && devices.some((item) => item.device_id === savedDevice)) select.value = savedDevice;
-  $("apiStatus").textContent = `正常 · ${devices.length}台`;
-  $("apiStatus").className = "small-status online";
+  const mqttConnected = health.mqtt?.enabled && health.mqtt?.connected;
+  $("apiStatus").textContent = health.mqtt?.enabled
+    ? `${mqttConnected ? "MQTT在线" : "MQTT离线"} · ${devices.length}台`
+    : `API正常 · ${devices.length}台`;
+  $("apiStatus").className = `small-status ${mqttConnected || !health.mqtt?.enabled ? "online" : "checking"}`;
   return { base, health, devices };
 }
 
