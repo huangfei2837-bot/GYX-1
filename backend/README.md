@@ -82,6 +82,7 @@ GYX1_PORT                 默认 8080
 GYX1_DB                   SQLite数据库路径
 GYX1_ALLOWED_ORIGIN       允许访问API的网站来源，默认 *
 GYX1_ONLINE_TIMEOUT_MS    在线超时时间，默认15000毫秒
+GYX1_HTTP_INGEST_ENABLED  是否开放HTTP设备上报，默认true；公网部署应设为false
 GYX1_MQTT_URL             MQTT地址，例如mqtt://192.168.1.112:1883
 GYX1_MQTT_USERNAME        MQTT后台订阅账号
 GYX1_MQTT_PASSWORD        MQTT后台订阅密码
@@ -99,4 +100,6 @@ GYX1_MQTT_TOPIC           订阅主题，默认gyx1/+/telemetry
 - `stop-gyx1.sh`：停止当前后台进程。
 
 服务器目录约定为`~/gyx1`，共享数据库位于`~/gyx1/data`，发布版本位于`~/gyx1/releases`。凭据文件权限必须为`600`，不得提交到GitHub。
+
+部署脚本默认关闭匿名HTTP设备上报，只允许ESP32通过MQTT写入数据；查询API和WebSocket保持只读开放。
 

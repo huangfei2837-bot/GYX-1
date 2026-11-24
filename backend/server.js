@@ -16,6 +16,7 @@ const FRONTEND_DIR = path.resolve(__dirname, "..");
 const MQTT_URL = process.env.GYX1_MQTT_URL || "";
 const MQTT_TOPIC = process.env.GYX1_MQTT_TOPIC || "gyx1/+/telemetry";
 const MQTT_CLIENT_ID = process.env.GYX1_MQTT_CLIENT_ID || `gyx1-backend-${process.pid}-${crypto.randomBytes(3).toString("hex")}`;
+const HTTP_INGEST_ENABLED = process.env.GYX1_HTTP_INGEST_ENABLED !== "false";
 
 const db = new DatabaseSync(DB_PATH);
 db.exec(`
@@ -327,6 +328,10 @@ function contentType(filePath) {
 
 function serveStatic(urlPath, res) {
   const requested = urlPath === "/" ? "index.html" : decodeURIComponent(urlPath.slice(1));
+  const publicFiles = new Set(["index.html", "app.js", "styles.css", "sample-data.csv"]);
+  if (!publicFiles.has(requested)) {
+    sendJson(res, 404, { error: "资源不存在" }); return;
+  }
   const filePath = path.resolve(FRONTEND_DIR, requested);
   const firstSegment = requested.split(/[\\/]/)[0];
   if (!filePath.startsWith(FRONTEND_DIR + path.sep) || firstSegment === "backend" || firstSegment.startsWith(".")) {
@@ -364,6 +369,9 @@ const server = http.createServer(async (req, res) => {
       const limit = Math.min(2000, Math.max(1, Number(url.searchParams.get("limit")) || 300));
       sendJson(res, 200, statements.history.all(deviceId, limit).reverse());
     } else if (req.method === "POST" && url.pathname === "/api/telemetry") {
+      if (!HTTP_INGEST_ENABLED) {
+        sendJson(res, 403, { error: "HTTP设备上报已关闭，请使用MQTT" }); return;
+      }
       const record = insertTelemetry(await readBody(req));
       broadcastTelemetry(record);
       sendJson(res, 202, { accepted: true, data: record });
