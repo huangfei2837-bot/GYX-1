@@ -1,5 +1,16 @@
 "use strict";
 
+const FIXED_API_BASE_URL = "https://gyx1-api.tailc492fc.ts.net";
+
+function initialApiBaseUrl() {
+  const saved = localStorage.getItem("gyx1.apiBaseUrl") || "";
+  const obsolete = !saved
+    || saved.includes("trycloudflare.com")
+    || saved.includes("192.168.1.112")
+    || saved === "http://127.0.0.1:8080";
+  return obsolete ? FIXED_API_BASE_URL : saved;
+}
+
 const DEFAULT_CONFIG = Object.freeze({
   topology: "sensorTop",
   vc: 5,
@@ -27,7 +38,7 @@ const state = {
   packetLoss: 0,
   aboveWarningSeconds: 0,
   aboveAlarmSeconds: 0,
-  apiBaseUrl: localStorage.getItem("gyx1.apiBaseUrl") || "https://gyx1-api.tailc492fc.ts.net",
+  apiBaseUrl: initialApiBaseUrl(),
   activeDeviceId: localStorage.getItem("gyx1.deviceId") || "",
   socket: null,
   shouldReconnect: false,
