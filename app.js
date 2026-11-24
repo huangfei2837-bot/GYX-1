@@ -27,7 +27,7 @@ const state = {
   packetLoss: 0,
   aboveWarningSeconds: 0,
   aboveAlarmSeconds: 0,
-  apiBaseUrl: localStorage.getItem("gyx1.apiBaseUrl") || "http://127.0.0.1:8080",
+  apiBaseUrl: localStorage.getItem("gyx1.apiBaseUrl") || "https://gyx1-api.tailc492fc.ts.net",
   activeDeviceId: localStorage.getItem("gyx1.deviceId") || "",
   socket: null,
   shouldReconnect: false,

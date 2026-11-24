@@ -4,6 +4,8 @@ GYX-1用于MEMS半导体氢气传感器的数据采集、计算、趋势展示�
 
 公开演示站：<https://huangfei2837-bot.github.io/GYX-1/>
 
+固定实时API：<https://gyx1-api.tailc492fc.ts.net/>
+
 ## 本次改造内容
 
 - 新增实时设备模式和服务器连接配置。
