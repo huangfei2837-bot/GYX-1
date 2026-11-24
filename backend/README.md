@@ -98,6 +98,7 @@ GYX1_MQTT_TOPIC           订阅主题，默认gyx1/+/telemetry
 - `start-gyx1.sh`：读取受保护的MQTT凭据并启动后台。
 - `launch-gyx1.sh`：避免重复进程，后台启动并记录PID和日志。
 - `stop-gyx1.sh`：停止当前后台进程。
+- `launch-tailscale.sh`：以普通用户模式启动Tailscale守护进程，用于固定HTTPS入口。
 
 服务器目录约定为`~/gyx1`，共享数据库位于`~/gyx1/data`，发布版本位于`~/gyx1/releases`。凭据文件权限必须为`600`，不得提交到GitHub。
 
