@@ -90,3 +90,13 @@ GYX1_MQTT_TOPIC           订阅主题，默认gyx1/+/telemetry
 
 生产服务器需要由 Nginx 或 Caddy 提供 HTTPS，并将 `GYX1_ALLOWED_ORIGIN` 设置为实际网站地址。
 
+## Ubuntu用户目录部署
+
+`deployment/`中的脚本支持把后台部署到普通Ubuntu用户目录：
+
+- `start-gyx1.sh`：读取受保护的MQTT凭据并启动后台。
+- `launch-gyx1.sh`：避免重复进程，后台启动并记录PID和日志。
+- `stop-gyx1.sh`：停止当前后台进程。
+
+服务器目录约定为`~/gyx1`，共享数据库位于`~/gyx1/data`，发布版本位于`~/gyx1/releases`。凭据文件权限必须为`600`，不得提交到GitHub。
+
